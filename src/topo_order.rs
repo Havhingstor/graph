@@ -7,17 +7,17 @@ enum TopoOrderNodeStatus {
     Visited,
 }
 
-struct CircDependency<T> {
+struct CircDependency<'a, T> {
     /// The actual nodes that are visited twice.
     /// Once their "upper" visit has concluded no additional notes will be found to be affected
     /// (within one sub-circle)
-    circ_node: HashSet<T>,
+    circ_node: HashSet<&'a T>,
     /// All the nodes within the circle
-    affected_nodes: HashSet<T>,
+    affected_nodes: HashSet<&'a T>,
 }
 
-impl<T: Eq + Hash> CircDependency<T> {
-    fn with_node(node: T) -> CircDependency<T> {
+impl<T: Eq + Hash> CircDependency<'_, T> {
+    fn with_node(node: &T) -> CircDependency<'_, T> {
         CircDependency {
             circ_node: HashSet::from_iter(vec![node]),
             affected_nodes: Default::default(),
@@ -25,7 +25,7 @@ impl<T: Eq + Hash> CircDependency<T> {
     }
 }
 
-impl<T> Default for CircDependency<T> {
+impl<T> Default for CircDependency<'_, T> {
     fn default() -> Self {
         Self {
             circ_node: Default::default(),
@@ -39,41 +39,46 @@ where
     T: Copy + Eq + Hash,
     G: Graph<T> + ?Sized,
 {
-    node_status: HashMap<T, TopoOrderNodeStatus>,
+    node_status: HashMap<&'a T, TopoOrderNodeStatus>,
     graph: &'a G,
-    reversed_order: Vec<HashSet<T>>,
+    reversed_order: Vec<HashSet<&'a T>>,
 }
 
-impl<T, G> TopoOrder<'_, T, G>
+impl<'a, T, G> TopoOrder<'a, T, G>
 where
     T: Copy + Eq + Hash,
     G: Graph<T> + ?Sized,
 {
-    pub(super) fn calculate_topo_order(graph: &G) -> Vec<HashSet<T>> {
+    pub(super) fn calculate_topo_order(graph: &'a G) -> Vec<HashSet<T>> {
         let mut order = TopoOrder {
             graph,
             node_status: Default::default(),
             reversed_order: Default::default(),
         };
 
-        graph.get_nodes().iter().for_each(|node| {
+        let nodes = graph.get_nodes();
+        nodes.iter().for_each(|node| {
             order.go_through_from_node(node);
         });
 
-        order.reversed_order.into_iter().rev().collect()
+        order
+            .reversed_order
+            .into_iter()
+            .rev()
+            .map(|group| group.into_iter().map(|node| node.to_owned()).collect())
+            .collect()
     }
 
-    fn go_through_from_node(&mut self, node: &T) -> Option<CircDependency<T>> {
+    fn go_through_from_node(&mut self, node: &'a T) -> Option<CircDependency<'a, T>> {
         match self.node_status.get(node) {
             Some(TopoOrderNodeStatus::Visiting) => {
-                return Some(CircDependency::with_node(*node));
+                return Some(CircDependency::with_node(node));
             }
             Some(TopoOrderNodeStatus::Visited) => return None,
             _ => (),
         };
 
-        self.node_status
-            .insert(*node, TopoOrderNodeStatus::Visiting);
+        self.node_status.insert(node, TopoOrderNodeStatus::Visiting);
 
         let mut result = self
             .graph
@@ -92,13 +97,13 @@ where
             })
             .unwrap_or_default();
 
-        self.node_status.insert(*node, TopoOrderNodeStatus::Visited);
+        self.node_status.insert(node, TopoOrderNodeStatus::Visited);
 
         // If this node was one where a sub-circle became apparent, we have now found all nodes in
         // that sub-circle
         result.circ_node.remove(node);
         // But we are certainly within the circle (or a pseudo-circle with just our node)
-        result.affected_nodes.insert(*node);
+        result.affected_nodes.insert(node);
 
         // So if all sub-circles are finished, we actually found all nodes
         if result.circ_node.is_empty() {
