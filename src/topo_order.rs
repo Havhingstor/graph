@@ -65,7 +65,7 @@ where
             .reversed_order
             .into_iter()
             .rev()
-            .map(|group| group.into_iter().map(|node| node.to_owned()).collect())
+            .map(|group| group.into_iter().copied().collect())
             .collect()
     }
 
