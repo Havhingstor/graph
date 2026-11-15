@@ -1,3 +1,7 @@
+//! A general graph operating on `T`
+//!
+//! The nodes are stored as owned objects in [`HashMap`] and [`HashSet`], `T` should therefore be
+//! light-weight.
 use std::{
     collections::{HashMap, HashSet},
     hash::Hash,
@@ -6,8 +10,13 @@ use std::{
 use crate::Graph;
 
 #[derive(Default, Debug)]
+/// A general graph operating on `T`
+///
+/// The nodes are stored as owned objects in [`HashMap`] and [`HashSet`], `T` should therefore be
+/// light-weight.
 pub struct GeneralGraph<T> {
-    nodes: HashMap<T, HashSet<T>>,
+    /// The directed edges of the graph, as a function of their origin node.
+    edges: HashMap<T, HashSet<T>>,
 }
 
 impl<T> Graph<T> for GeneralGraph<T>
@@ -15,21 +24,21 @@ where
     T: Copy + Eq + Hash,
 {
     fn get_insert_targets_mut(&mut self, node: T) -> &mut HashSet<T> {
-        self.nodes.entry(node).or_default()
+        self.edges.entry(node).or_default()
     }
 
     fn get_targets_mut(&mut self, node: &T) -> Option<&mut HashSet<T>> {
-        self.nodes.get_mut(node)
+        self.edges.get_mut(node)
     }
 
     fn get_targets(&self, node: &T) -> Option<&HashSet<T>> {
-        self.nodes.get(node)
+        self.edges.get(node)
     }
 
     fn get_nodes(&self) -> HashSet<T> {
-        let mut result = HashSet::from_iter(self.nodes.keys().copied());
+        let mut result = HashSet::from_iter(self.edges.keys().copied());
 
-        self.nodes
+        self.edges
             .values()
             .for_each(|targets| result.extend(targets));
 
@@ -41,14 +50,48 @@ impl<T> GeneralGraph<T>
 where
     T: Copy + Eq + Hash,
 {
+    /// Add a node to the graph, without adding any edges to connect it to the already present
+    /// nodes.
     pub fn add_node(&mut self, node: T) {
         self.get_insert_targets_mut(node);
     }
 
+    /// Delete a node from the graph, and all edges connecting to it.
     pub fn delete_node(&mut self, node: &T) {
-        self.nodes.remove(node);
-        self.nodes.iter_mut().for_each(|(_, targets)| {
+        self.edges.remove(node);
+        self.edges.iter_mut().for_each(|(_, targets)| {
             targets.remove(node);
         });
+    }
+
+    /// Minimizes the stored graph.
+    ///
+    /// Duplicate node storage is removed where it isn't needed.
+    /// The actual set of nodes or edges doesn't change.
+    pub fn minimize(&mut self) {
+        // All the nodes that don't need to be stored as keys
+        let sinks: HashSet<T> = self
+            .edges
+            .iter()
+            .filter_map(
+                |(key, value)| {
+                    if value.is_empty() { Some(*key) } else { None }
+                },
+            )
+            .collect();
+
+        // Create one owning iterator iterating over all the nodes that are both in sinks and in the
+        // targets of another node. First, each of the nodes is once for each edge that leads to it,
+        // deduplication is done when collecting into the HashSet.
+        let sinks: HashSet<T> = self
+            .edges
+            .values()
+            .flat_map(|targets| sinks.intersection(targets))
+            .copied()
+            .collect();
+
+        for node in sinks {
+            self.edges.remove(&node);
+        }
     }
 }

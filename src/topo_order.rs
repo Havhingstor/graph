@@ -1,117 +1,132 @@
+//! The functions and types to implement the topological order algorithm.
 use super::Graph;
 use std::collections::{HashMap, HashSet};
 use std::hash::Hash;
 
-enum TopoOrderNodeStatus {
-    Visiting,
+/// Calculate the topological order of the nodes. Strong components are combined into [`HashSet`]
+pub(super) fn topo_order<T, G>(graph: &G) -> Vec<HashSet<T>>
+where
+    T: Copy + Eq + Hash,
+    G: Graph<T> + ?Sized,
+{
+    let mut result = Vec::default();
+    let mut states = HashMap::default();
+
+    for node in &graph.get_nodes() {
+        let circs = walk_from_node(graph, node, &mut states, &mut result);
+        debug_assert!(circs.is_empty());
+    }
+
+    result.reverse();
+
+    result
+}
+
+/// Walk through all subsequent nodes from the specified one, add the ones that certainly come
+/// after to the current list and return any potential ongoing strong component
+fn walk_from_node<'a, T, G>(
+    graph: &'a G,
+    node: &'a T,
+    states: &mut HashMap<&'a T, WalkingState>,
+    current_list: &mut Vec<HashSet<T>>,
+) -> WalkResult<'a, T>
+where
+    T: Copy + Eq + Hash,
+    G: Graph<T> + ?Sized,
+{
+    if let Some(state) = states.get(node) {
+        match state {
+            WalkingState::CurrentlyVisiting => return WalkResult::with_start(node),
+            WalkingState::Visited => return WalkResult::default(),
+        }
+    }
+    states.insert(node, WalkingState::CurrentlyVisiting);
+
+    let mut sub_result = graph
+        .get_targets(node)
+        .into_iter()
+        // Here we generate an iterator over all targets, and `None` is transformed into an
+        // empty iterator
+        .flatten()
+        // Now we find all circular references from each following node, and combine them into one
+        // object
+        .map(|target| walk_from_node(graph, target, states, current_list))
+        .reduce(WalkResult::extending)
+        .unwrap_or_default();
+
+    states.insert(node, WalkingState::Visited);
+
+    // If this node was one where a sub-circle became apparent, we have now found all nodes in
+    // that sub-circle
+    sub_result.component_end.remove(node);
+    // But we are certainly within the circle (or a pseudo-circle with just our node)
+    sub_result.current_component.insert(node.to_owned());
+
+    // So if all sub-circles are finished, we actually found all nodes
+    if sub_result.component_end.is_empty() {
+        current_list.push(sub_result.current_component);
+        sub_result.current_component = HashSet::default();
+    }
+
+    sub_result
+}
+
+/// The state a node might be in (except not encountered at all)
+enum WalkingState {
+    /// The node is currently being visited, meaning its successors are walked through at the moment
+    CurrentlyVisiting,
+    /// The node has been visited before. It and all its successors are already in the list
     Visited,
 }
 
-struct CircDependency<'a, T> {
-    /// The actual nodes that are visited twice.
-    /// Once their "upper" visit has concluded no additional notes will be found to be affected
-    /// (within one sub-circle)
-    circ_node: HashSet<&'a T>,
-    /// All the nodes within the circle
-    affected_nodes: HashSet<&'a T>,
+/// The result of walking from a specific node
+struct WalkResult<'a, T>
+where
+    T: Hash + Eq,
+{
+    /// The set of nodes that are part of the currently encountered strong component, and which have
+    /// already been visited fully
+    current_component: HashSet<T>,
+    /// The components that will stand at the end of the strong component (These are the ones that
+    /// connect cycles, the ones that were encountered a second time). They are yet to be visited
+    /// the necessary second time
+    component_end: HashSet<&'a T>,
 }
 
-impl<T: Eq + Hash> CircDependency<'_, T> {
-    fn with_node(node: &T) -> CircDependency<'_, T> {
-        CircDependency {
-            circ_node: HashSet::from_iter(vec![node]),
-            affected_nodes: Default::default(),
-        }
-    }
-}
-
-impl<T> Default for CircDependency<'_, T> {
+impl<T> Default for WalkResult<'_, T>
+where
+    T: Hash + Eq,
+{
     fn default() -> Self {
         Self {
-            circ_node: Default::default(),
-            affected_nodes: Default::default(),
+            current_component: HashSet::default(),
+            component_end: HashSet::default(),
         }
     }
 }
 
-pub(super) struct TopoOrder<'a, T, G>
+impl<'a, T> WalkResult<'a, T>
 where
-    T: Copy + Eq + Hash,
-    G: Graph<T> + ?Sized,
+    T: Hash + Eq,
 {
-    node_status: HashMap<&'a T, TopoOrderNodeStatus>,
-    graph: &'a G,
-    reversed_order: Vec<HashSet<&'a T>>,
-}
-
-impl<'a, T, G> TopoOrder<'a, T, G>
-where
-    T: Copy + Eq + Hash,
-    G: Graph<T> + ?Sized,
-{
-    pub(super) fn calculate_topo_order(graph: &'a G) -> Vec<HashSet<T>> {
-        let mut order = TopoOrder {
-            graph,
-            node_status: Default::default(),
-            reversed_order: Default::default(),
-        };
-
-        let nodes = graph.get_nodes();
-        nodes.iter().for_each(|node| {
-            order.go_through_from_node(node);
-        });
-
-        order
-            .reversed_order
-            .into_iter()
-            .rev()
-            .map(|group| group.into_iter().copied().collect())
-            .collect()
+    /// Create a new `WalkResult` with a specific component end. This should be used if we encounter
+    /// a node a second time, since the component also ends when the visit to this node ends
+    fn with_start(first: &'a T) -> Self {
+        Self {
+            component_end: HashSet::from([first]),
+            ..Default::default()
+        }
     }
 
-    fn go_through_from_node(&mut self, node: &'a T) -> Option<CircDependency<'a, T>> {
-        match self.node_status.get(node) {
-            Some(TopoOrderNodeStatus::Visiting) => {
-                return Some(CircDependency::with_node(node));
-            }
-            Some(TopoOrderNodeStatus::Visited) => return None,
-            _ => (),
-        };
+    /// Combine two partial strong components
+    fn extending(mut self, other: Self) -> Self {
+        self.component_end.extend(other.component_end);
+        self.current_component.extend(other.current_component);
+        self
+    }
 
-        self.node_status.insert(node, TopoOrderNodeStatus::Visiting);
-
-        let mut result = self
-            .graph
-            .get_targets(node)
-            .iter()
-            // Here we generate an iterator over all targets, and `None` is transformed into an
-            // empty iterator
-            .flat_map(|target_set| target_set.iter())
-            // No we find all circular references from each following node, and combine them
-            // into one object
-            .filter_map(|next| self.go_through_from_node(next))
-            .reduce(|mut acc, new_dependency| {
-                acc.circ_node.extend(new_dependency.circ_node);
-                acc.affected_nodes.extend(new_dependency.affected_nodes);
-                acc
-            })
-            .unwrap_or_default();
-
-        self.node_status.insert(node, TopoOrderNodeStatus::Visited);
-
-        // If this node was one where a sub-circle became apparent, we have now found all nodes in
-        // that sub-circle
-        result.circ_node.remove(node);
-        // But we are certainly within the circle (or a pseudo-circle with just our node)
-        result.affected_nodes.insert(node);
-
-        // So if all sub-circles are finished, we actually found all nodes
-        if result.circ_node.is_empty() {
-            self.reversed_order.push(result.affected_nodes);
-
-            None
-        } else {
-            Some(result)
-        }
+    /// Returns true if there are no nodes left in a potential strong component
+    fn is_empty(&self) -> bool {
+        self.component_end.is_empty() && self.current_component.is_empty()
     }
 }
