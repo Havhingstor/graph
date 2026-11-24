@@ -13,6 +13,7 @@ use std::{
 
 pub mod general_graph;
 pub mod index_graph;
+pub mod matrix_graph;
 mod topo_order;
 
 /// A non-weighted, directed graph.
@@ -42,7 +43,9 @@ where
     E: Edges<T>,
 {
     /// Return all the nodes that can be reached from `from` via one directed edge. If the node is
-    /// not in the graph, it is inserted, and its new, empty target list is returned
+    /// not in the graph, it is inserted, and its new, empty target list is returned.
+    /// Note: Depending on the implementation it might not be guaranteed that all returned elements
+    /// are actually nodes.
     ///
     /// ```
     /// # use graph::{Graph, general_graph::GeneralGraph, Edges};
@@ -58,7 +61,9 @@ where
     /// ```
     fn get_insert_targets_mut(&mut self, node: &T) -> &mut E;
     /// Return all the nodes that can be reached from `from` via one directed edge. `None` if the
-    /// node is not in the graph
+    /// node is not in the graph.
+    /// Note: Depending on the implementation it might not be guaranteed that all returned elements
+    /// are actually nodes.
     ///
     /// ```
     /// # use graph::{Graph, general_graph::GeneralGraph, Edges};
@@ -75,7 +80,9 @@ where
     /// ```
     fn get_targets_mut(&mut self, node: &T) -> Option<&mut E>;
     /// Return all the nodes that can be reached from `from` via one directed edge. `None` if the
-    /// node is not in the graph
+    /// node is not in the graph.
+    /// Note: Depending on the implementation it might not be guaranteed that all returned elements
+    /// are actually nodes.
     ///
     /// ```
     /// # use graph::{Graph, general_graph::GeneralGraph, Edges};
@@ -153,6 +160,9 @@ where
     T: Copy + Eq + Hash,
 {
     /// Add a new edge, by specifiying its end node.
+    /// Note: Depending on implementation the node might have to be created first by calling
+    /// [`Graph::get_insert_targets_mut`] or an equivalent function (like
+    /// [`general_graph::GeneralGraph::add_node`]), otherwise it might not be added as a target.
     ///
     /// ```
     /// # use graph::Edges;
@@ -189,6 +199,17 @@ where
     /// assert_eq!(iterated, HashSet::from([1, 2, 3]));
     /// ```
     fn edge_iter(&self) -> impl Iterator<Item = T>;
+    /// Find out if an edge with the given target exists in this collection
+    ///
+    /// ```
+    /// # use graph::Edges;
+    /// # use std::collections::HashSet;
+    /// let edges = HashSet::from([1, 2, 3]);
+    ///
+    /// assert!(edges.is_target(&2));
+    /// assert!(!edges.is_target(&4));
+    /// ```
+    fn is_target(&self, target: &T) -> bool;
 }
 
 impl<T, S> Edges<T> for HashSet<T, S>
@@ -206,5 +227,9 @@ where
 
     fn edge_iter(&self) -> impl Iterator<Item = T> {
         self.iter().copied()
+    }
+
+    fn is_target(&self, target: &T) -> bool {
+        self.contains(target)
     }
 }
