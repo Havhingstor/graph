@@ -1,4 +1,4 @@
-//! A graph operating on [`usize`]
+//! A graph operating on [`usize`], storing edges in an adjacency matrix.
 use crate::{Edges, Graph};
 use std::collections::HashSet;
 

@@ -11,8 +11,11 @@ use std::{
     hash::{BuildHasher, Hash},
 };
 
+#[cfg(feature = "general_graph")]
 pub mod general_graph;
+#[cfg(feature = "index_graph")]
 pub mod index_graph;
+#[cfg(feature = "matrix_graph")]
 pub mod matrix_graph;
 mod topo_order;
 
