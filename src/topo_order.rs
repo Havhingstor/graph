@@ -15,7 +15,7 @@ where
     let mut result = Vec::default();
     let mut states = HashMap::default();
 
-    for node in &graph.get_nodes() {
+    for node in graph.get_nodes() {
         let circs = walk_from_node(graph, node, &mut states, &mut result);
         debug_assert!(circs.is_empty());
     }
@@ -27,18 +27,18 @@ where
 
 /// Walk through all subsequent nodes from the specified one, add the ones that certainly come
 /// after to the current list and return any potential ongoing strong component
-fn walk_from_node<'a, T, G, E>(
-    graph: &'a G,
-    node: &'a T,
-    states: &mut HashMap<&'a T, WalkingState>,
+fn walk_from_node<T, G, E>(
+    graph: &G,
+    node: T,
+    states: &mut HashMap<T, WalkingState>,
     current_list: &mut Vec<HashSet<T>>,
-) -> WalkResult<'a, T>
+) -> WalkResult<T>
 where
     T: Copy + Eq + Hash,
     G: Graph<T, E> + ?Sized,
-    E: Edges<T> + 'a,
+    E: Edges<T>,
 {
-    if let Some(state) = states.get(node) {
+    if let Some(state) = states.get(&node) {
         match state {
             WalkingState::CurrentlyVisiting => return WalkResult::with_start(node),
             WalkingState::Visited => return WalkResult::default(),
@@ -47,7 +47,7 @@ where
     states.insert(node, WalkingState::CurrentlyVisiting);
 
     let mut sub_result = graph
-        .get_targets(node)
+        .get_targets(&node)
         .into_iter()
         // Here we generate an iterator over all targets, and `None` is transformed into an
         // empty iterator
@@ -62,9 +62,9 @@ where
 
     // If this node was one where a sub-circle became apparent, we have now found all nodes in
     // that sub-circle
-    sub_result.component_end.remove(node);
+    sub_result.component_end.remove(&node);
     // But we are certainly within the circle (or a pseudo-circle with just our node)
-    sub_result.current_component.insert(node.to_owned());
+    sub_result.current_component.insert(node);
 
     // So if all sub-circles are finished, we actually found all nodes
     if sub_result.component_end.is_empty() {
@@ -84,7 +84,7 @@ enum WalkingState {
 }
 
 /// The result of walking from a specific node
-struct WalkResult<'a, T>
+struct WalkResult<T>
 where
     T: Hash + Eq,
 {
@@ -94,10 +94,10 @@ where
     /// The components that will stand at the end of the strong component (These are the ones that
     /// connect cycles, the ones that were encountered a second time). They are yet to be visited
     /// the necessary second time
-    component_end: HashSet<&'a T>,
+    component_end: HashSet<T>,
 }
 
-impl<T> Default for WalkResult<'_, T>
+impl<T> Default for WalkResult<T>
 where
     T: Hash + Eq,
 {
@@ -109,13 +109,13 @@ where
     }
 }
 
-impl<'a, T> WalkResult<'a, T>
+impl<T> WalkResult<T>
 where
     T: Hash + Eq,
 {
     /// Create a new `WalkResult` with a specific component end. This should be used if we encounter
     /// a node a second time, since the component also ends when the visit to this node ends
-    fn with_start(first: &'a T) -> Self {
+    fn with_start(first: T) -> Self {
         Self {
             component_end: HashSet::from([first]),
             ..Default::default()

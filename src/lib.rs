@@ -145,11 +145,7 @@ where
     /// Delete an edge, by specifiying its end node.
     fn delete(&mut self, target: &T);
     /// Iterate over all edges (or more precisely, their target nodes)
-    fn edge_iter<'a>(&'a self) -> impl Iterator<Item = &'a T>
-    where
-        T: 'a;
-    /// Iterate over all edges (or more precisely, their target nodes)
-    fn edge_into_iter(self) -> impl Iterator<Item = T>;
+    fn edge_iter(&self) -> impl Iterator<Item = T>;
 }
 
 impl<T, S> Edges<T> for HashSet<T, S>
@@ -165,14 +161,7 @@ where
         self.remove(target);
     }
 
-    fn edge_iter<'a>(&'a self) -> impl Iterator<Item = &'a T>
-    where
-        T: 'a,
-    {
-        self.iter()
-    }
-
-    fn edge_into_iter(self) -> impl Iterator<Item = T> {
-        self.into_iter()
+    fn edge_iter(&self) -> impl Iterator<Item = T> {
+        self.iter().copied()
     }
 }
