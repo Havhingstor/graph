@@ -52,7 +52,7 @@ where
     /// assert_eq!(our_graph.get_nodes(), HashSet::from(['A', 'B']));
     /// assert_eq!(our_graph.get_targets(&'B'), Some(&HashSet::from(['A'])));
     /// ```
-    fn get_insert_targets_mut(&mut self, node: T) -> &mut HashSet<T>;
+    fn get_insert_targets_mut(&mut self, node: &T) -> &mut HashSet<T>;
     /// Return all the nodes that can be reached from `from` via one directed edge. `None` if the
     /// node is not in the graph
     ///

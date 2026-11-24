@@ -39,8 +39,8 @@ impl<T> Graph<T> for GeneralGraph<T>
 where
     T: Copy + Eq + Hash,
 {
-    fn get_insert_targets_mut(&mut self, node: T) -> &mut HashSet<T> {
-        self.edges.entry(node).or_default()
+    fn get_insert_targets_mut(&mut self, node: &T) -> &mut HashSet<T> {
+        self.edges.entry(*node).or_default()
     }
 
     fn get_targets_mut(&mut self, node: &T) -> Option<&mut HashSet<T>> {
@@ -78,7 +78,7 @@ where
     ///
     /// assert_eq!(our_graph.get_nodes(), HashSet::from(['A']));
     /// ```
-    pub fn add_node(&mut self, node: T) {
+    pub fn add_node(&mut self, node: &T) {
         self.get_insert_targets_mut(node);
     }
 

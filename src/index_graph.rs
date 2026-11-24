@@ -26,9 +26,9 @@ pub struct IndexGraph {
 }
 
 impl Graph<usize> for IndexGraph {
-    fn get_insert_targets_mut(&mut self, node: usize) -> &mut HashSet<usize> {
-        self.ensure_node(node);
-        self.edges.get_mut(node).unwrap()
+    fn get_insert_targets_mut(&mut self, node: &usize) -> &mut HashSet<usize> {
+        self.ensure_node(*node);
+        self.edges.get_mut(*node).unwrap()
     }
 
     fn get_targets_mut(&mut self, node: &usize) -> Option<&mut HashSet<usize>> {
