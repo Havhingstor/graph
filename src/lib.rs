@@ -136,15 +136,58 @@ where
 /// A collection of edges, where `T` is the target of the edge.
 ///
 /// Storing the edges that start from a certain node.
+///
+/// ```
+/// # use graph::Edges;
+/// # use std::collections::HashSet;
+/// let mut edges = HashSet::from([1, 2, 3]);
+///
+/// edges.add(&4);
+/// edges.remove(&2);
+///
+/// let iterated: HashSet<_> = edges.edge_iter().collect();
+/// assert_eq!(iterated, HashSet::from([1, 3, 4]));
+/// ```
 pub trait Edges<T>
 where
     T: Copy + Eq + Hash,
 {
     /// Add a new edge, by specifiying its end node.
+    ///
+    /// ```
+    /// # use graph::Edges;
+    /// # use std::collections::HashSet;
+    /// let mut edges: HashSet<_> = Default::default();
+    ///
+    /// edges.add(&4);
+    ///
+    /// let iterated: HashSet<_> = edges.edge_iter().collect();
+    /// assert_eq!(iterated, HashSet::from([4]));
+    /// ```
     fn add(&mut self, target: &T);
     /// Delete an edge, by specifiying its end node.
+    ///
+    /// ```
+    /// # use graph::Edges;
+    /// # use std::collections::HashSet;
+    /// let mut edges = HashSet::from([1, 2, 3]);
+    ///
+    /// edges.remove(&2);
+    ///
+    /// let iterated: HashSet<_> = edges.edge_iter().collect();
+    /// assert_eq!(iterated, HashSet::from([1, 3]));
+    /// ```
     fn delete(&mut self, target: &T);
     /// Iterate over all edges (or more precisely, their target nodes)
+    ///
+    /// ```
+    /// # use graph::Edges;
+    /// # use std::collections::HashSet;
+    /// let edges = HashSet::from([1, 2, 3]);
+    ///
+    /// let iterated: HashSet<_> = edges.edge_iter().collect();
+    /// assert_eq!(iterated, HashSet::from([1, 2, 3]));
+    /// ```
     fn edge_iter(&self) -> impl Iterator<Item = T>;
 }
 
