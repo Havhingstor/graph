@@ -7,14 +7,14 @@ use std::collections::HashSet;
 ///
 /// ```
 /// # use std::collections::HashSet;
-/// # use graph::{Graph, index_graph::IndexGraph};
+/// # use graph::{Graph, index_graph::IndexGraph, Edges};
 /// let mut our_graph = IndexGraph::default();
 ///
 /// our_graph.set_size(2);
 ///
-/// our_graph.get_targets_mut(&0).unwrap().insert(1);
-/// our_graph.get_targets_mut(&1).unwrap().insert(2);
-/// our_graph.get_insert_targets_mut(2).insert(0);
+/// our_graph.get_targets_mut(&0).unwrap().add(&1);
+/// our_graph.get_targets_mut(&1).unwrap().add(&2);
+/// our_graph.get_insert_targets_mut(&2).add(&0);
 ///
 /// assert_eq!(our_graph.get_nodes(), HashSet::from([0, 1, 2]));
 /// assert_eq!(our_graph.get_targets(&1), Some(&HashSet::from([2])));
@@ -25,7 +25,7 @@ pub struct IndexGraph {
     edges: Vec<HashSet<usize>>,
 }
 
-impl Graph<usize> for IndexGraph {
+impl Graph<usize, HashSet<usize>> for IndexGraph {
     fn get_insert_targets_mut(&mut self, node: &usize) -> &mut HashSet<usize> {
         self.ensure_node(*node);
         self.edges.get_mut(*node).unwrap()

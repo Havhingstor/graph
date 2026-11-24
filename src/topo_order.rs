@@ -1,13 +1,16 @@
 //! The functions and types to implement the topological order algorithm.
+use crate::Edges;
+
 use super::Graph;
 use std::collections::{HashMap, HashSet};
 use std::hash::Hash;
 
 /// Calculate the topological order of the nodes. Strong components are combined into [`HashSet`]
-pub(super) fn topo_order<T, G>(graph: &G) -> Vec<HashSet<T>>
+pub(super) fn topo_order<T, G, E>(graph: &G) -> Vec<HashSet<T>>
 where
     T: Copy + Eq + Hash,
-    G: Graph<T> + ?Sized,
+    G: Graph<T, E> + ?Sized,
+    E: Edges<T>,
 {
     let mut result = Vec::default();
     let mut states = HashMap::default();
@@ -24,7 +27,7 @@ where
 
 /// Walk through all subsequent nodes from the specified one, add the ones that certainly come
 /// after to the current list and return any potential ongoing strong component
-fn walk_from_node<'a, T, G>(
+fn walk_from_node<'a, T, G, E>(
     graph: &'a G,
     node: &'a T,
     states: &mut HashMap<&'a T, WalkingState>,
@@ -32,7 +35,8 @@ fn walk_from_node<'a, T, G>(
 ) -> WalkResult<'a, T>
 where
     T: Copy + Eq + Hash,
-    G: Graph<T> + ?Sized,
+    G: Graph<T, E> + ?Sized,
+    E: Edges<T> + 'a,
 {
     if let Some(state) = states.get(node) {
         match state {
@@ -47,7 +51,7 @@ where
         .into_iter()
         // Here we generate an iterator over all targets, and `None` is transformed into an
         // empty iterator
-        .flatten()
+        .flat_map(Edges::edge_iter)
         // Now we find all circular references from each following node, and combine them into one
         // object
         .map(|target| walk_from_node(graph, target, states, current_list))

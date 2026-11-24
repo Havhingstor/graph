@@ -17,15 +17,15 @@ use crate::Graph;
 ///
 /// ```
 /// # use std::collections::HashSet;
-/// # use graph::{Graph, general_graph::GeneralGraph};
+/// # use graph::{Graph, general_graph::GeneralGraph, Edges};
 /// let mut our_graph = GeneralGraph::<char>::default();
 ///
-/// our_graph.add_node('A');
-/// our_graph.add_node('B');
+/// our_graph.add_node(&'A');
+/// our_graph.add_node(&'B');
 ///
-/// our_graph.get_targets_mut(&'A').unwrap().insert('B');
-/// our_graph.get_targets_mut(&'B').unwrap().insert('C');
-/// our_graph.get_insert_targets_mut('C').insert('A');
+/// our_graph.get_targets_mut(&'A').unwrap().add(&'B');
+/// our_graph.get_targets_mut(&'B').unwrap().add(&'C');
+/// our_graph.get_insert_targets_mut(&'C').add(&'A');
 ///
 /// assert_eq!(our_graph.get_nodes(), HashSet::from(['A', 'B', 'C']));
 /// assert_eq!(our_graph.get_targets(&'B'), Some(&HashSet::from(['C'])));
@@ -35,7 +35,7 @@ pub struct GeneralGraph<T> {
     edges: HashMap<T, HashSet<T>>,
 }
 
-impl<T> Graph<T> for GeneralGraph<T>
+impl<T> Graph<T, HashSet<T>> for GeneralGraph<T>
 where
     T: Copy + Eq + Hash,
 {
@@ -71,10 +71,10 @@ where
     ///
     /// ```
     /// # use std::collections::HashSet;
-    /// # use graph::{Graph, general_graph::GeneralGraph};
+    /// # use graph::{Graph, general_graph::GeneralGraph, Edges};
     /// let mut our_graph = GeneralGraph::<char>::default();
     ///
-    /// our_graph.add_node('A');
+    /// our_graph.add_node(&'A');
     ///
     /// assert_eq!(our_graph.get_nodes(), HashSet::from(['A']));
     /// ```
@@ -86,10 +86,10 @@ where
     ///
     /// ```
     /// # use std::collections::HashSet;
-    /// # use graph::{Graph, general_graph::GeneralGraph};
+    /// # use graph::{Graph, general_graph::GeneralGraph, Edges};
     /// let mut our_graph = GeneralGraph::<char>::default();
     ///
-    /// our_graph.add_node('A');
+    /// our_graph.add_node(&'A');
     /// assert_eq!(our_graph.get_nodes(), HashSet::from(['A']));
     ///
     /// our_graph.delete_node(&'A');
@@ -109,13 +109,13 @@ where
     ///
     /// ```
     /// # use std::collections::HashSet;
-    /// # use graph::{Graph, general_graph::GeneralGraph};
+    /// # use graph::{Graph, general_graph::GeneralGraph, Edges};
     /// let mut our_graph = GeneralGraph::<char>::default();
     ///
-    /// our_graph.add_node('A');
-    /// our_graph.add_node('B');
+    /// our_graph.add_node(&'A');
+    /// our_graph.add_node(&'B');
     ///
-    /// our_graph.get_targets_mut(&'A').unwrap().insert('B');
+    /// our_graph.get_targets_mut(&'A').unwrap().add(&'B');
     ///
     /// our_graph.minimize();
     ///
