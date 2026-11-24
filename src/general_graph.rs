@@ -14,6 +14,22 @@ use crate::Graph;
 ///
 /// The nodes are stored as owned objects in [`HashMap`] and [`HashSet`], `T` should therefore be
 /// light-weight.
+///
+/// ```
+/// # use std::collections::HashSet;
+/// # use graph::{Graph, general_graph::GeneralGraph};
+/// let mut our_graph = GeneralGraph::<char>::default();
+///
+/// our_graph.add_node('A');
+/// our_graph.add_node('B');
+///
+/// our_graph.get_targets_mut(&'A').unwrap().insert('B');
+/// our_graph.get_targets_mut(&'B').unwrap().insert('C');
+/// our_graph.get_insert_targets_mut('C').insert('A');
+///
+/// assert_eq!(our_graph.get_nodes(), HashSet::from(['A', 'B', 'C']));
+/// assert_eq!(our_graph.get_targets(&'B'), Some(&HashSet::from(['C'])));
+/// ```
 pub struct GeneralGraph<T> {
     /// The directed edges of the graph, as a function of their origin node.
     edges: HashMap<T, HashSet<T>>,
@@ -52,11 +68,33 @@ where
 {
     /// Add a node to the graph, without adding any edges to connect it to the already present
     /// nodes.
+    ///
+    /// ```
+    /// # use std::collections::HashSet;
+    /// # use graph::{Graph, general_graph::GeneralGraph};
+    /// let mut our_graph = GeneralGraph::<char>::default();
+    ///
+    /// our_graph.add_node('A');
+    ///
+    /// assert_eq!(our_graph.get_nodes(), HashSet::from(['A']));
+    /// ```
     pub fn add_node(&mut self, node: T) {
         self.get_insert_targets_mut(node);
     }
 
     /// Delete a node from the graph, and all edges connecting to it.
+    ///
+    /// ```
+    /// # use std::collections::HashSet;
+    /// # use graph::{Graph, general_graph::GeneralGraph};
+    /// let mut our_graph = GeneralGraph::<char>::default();
+    ///
+    /// our_graph.add_node('A');
+    /// assert_eq!(our_graph.get_nodes(), HashSet::from(['A']));
+    ///
+    /// our_graph.delete_node(&'A');
+    /// assert_eq!(our_graph.get_nodes(), HashSet::default());
+    /// ```
     pub fn delete_node(&mut self, node: &T) {
         self.edges.remove(node);
         self.edges.iter_mut().for_each(|(_, targets)| {
@@ -68,6 +106,21 @@ where
     ///
     /// Duplicate node storage is removed where it isn't needed.
     /// The actual set of nodes or edges doesn't change.
+    ///
+    /// ```
+    /// # use std::collections::HashSet;
+    /// # use graph::{Graph, general_graph::GeneralGraph};
+    /// let mut our_graph = GeneralGraph::<char>::default();
+    ///
+    /// our_graph.add_node('A');
+    /// our_graph.add_node('B');
+    ///
+    /// our_graph.get_targets_mut(&'A').unwrap().insert('B');
+    ///
+    /// our_graph.minimize();
+    ///
+    /// assert_eq!(our_graph.get_nodes(), HashSet::from(['A', 'B']));
+    /// ```
     pub fn minimize(&mut self) {
         // All the nodes that don't need to be stored as keys
         let sinks: HashSet<T> = self

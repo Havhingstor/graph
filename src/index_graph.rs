@@ -4,6 +4,21 @@ use std::collections::HashSet;
 
 #[derive(Default, Debug)]
 /// A graph operating on [`usize`]
+///
+/// ```
+/// # use std::collections::HashSet;
+/// # use graph::{Graph, index_graph::IndexGraph};
+/// let mut our_graph = IndexGraph::default();
+///
+/// our_graph.set_size(2);
+///
+/// our_graph.get_targets_mut(&0).unwrap().insert(1);
+/// our_graph.get_targets_mut(&1).unwrap().insert(2);
+/// our_graph.get_insert_targets_mut(2).insert(0);
+///
+/// assert_eq!(our_graph.get_nodes(), HashSet::from([0, 1, 2]));
+/// assert_eq!(our_graph.get_targets(&1), Some(&HashSet::from([2])));
+/// ```
 pub struct IndexGraph {
     /// The list of edges of the graph, in the order of their originating node. The size of this
     /// determines which nodes exist in the graph.
@@ -30,7 +45,15 @@ impl Graph<usize> for IndexGraph {
 }
 
 impl IndexGraph {
-    /// Create a new graph with the given size (Nodes from `0` to `size - 1`), and no nodes.
+    /// Create a new graph with the given size (Nodes from `0` to `size - 1`), and no edges.
+    ///
+    /// ```
+    /// # use std::collections::HashSet;
+    /// # use graph::{Graph, index_graph::IndexGraph};
+    /// let our_graph = IndexGraph::new(3);
+    ///
+    /// assert_eq!(our_graph.get_nodes(), HashSet::from([0, 1, 2]));
+    /// ```
     #[allow(clippy::must_use_candidate)]
     pub fn new(size: usize) -> IndexGraph {
         IndexGraph {
@@ -39,6 +62,20 @@ impl IndexGraph {
     }
 
     /// Sets the size of the graph. Effectively nodes `size` and up are removed
+    ///
+    /// ```
+    /// # use std::collections::HashSet;
+    /// # use graph::{Graph, index_graph::IndexGraph};
+    /// let mut our_graph = IndexGraph::new(3);
+    ///
+    /// // You can shrink the graph
+    /// our_graph.set_size(2);
+    /// assert_eq!(our_graph.get_nodes(), HashSet::from([0, 1]));
+    ///
+    /// // Or grow it
+    /// our_graph.set_size(6);
+    /// assert_eq!(our_graph.get_nodes(), HashSet::from([0, 1, 2, 3, 4, 5]));
+    /// ```
     pub fn set_size(&mut self, size: usize) {
         self.edges.resize(size, HashSet::default());
         for edge_list in &mut self.edges {
