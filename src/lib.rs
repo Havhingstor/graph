@@ -45,10 +45,8 @@ where
     T: Copy + Eq + Hash,
     E: Edges<T>,
 {
-    /// Return all the nodes that can be reached from `from` via one directed edge. If the node is
+    /// Return all the nodes that can be reached from `node` via one directed edge. If the node is
     /// not in the graph, it is inserted, and its new, empty target list is returned.
-    /// Note: Depending on the implementation it might not be guaranteed that all returned elements
-    /// are actually nodes.
     ///
     /// ```
     /// # use graph::{Graph, general_graph::GeneralGraph, Edges};
@@ -63,10 +61,11 @@ where
     /// assert_eq!(our_graph.get_targets(&'B'), Some(&HashSet::from(['A'])));
     /// ```
     fn get_insert_targets_mut(&mut self, node: &T) -> &mut E;
-    /// Return all the nodes that can be reached from `from` via one directed edge. `None` if the
+
+    /// Return all the nodes that can be reached from `node` via one directed edge. `None` if the
     /// node is not in the graph.
-    /// Note: Depending on the implementation it might not be guaranteed that all returned elements
-    /// are actually nodes.
+    /// Note: Depending on the implementation a node without outgoing edges might also return
+    /// `None`.
     ///
     /// ```
     /// # use graph::{Graph, general_graph::GeneralGraph, Edges};
@@ -82,10 +81,11 @@ where
     /// assert_eq!(our_graph.get_targets(&'B'), Some(&HashSet::from(['A'])));
     /// ```
     fn get_targets_mut(&mut self, node: &T) -> Option<&mut E>;
-    /// Return all the nodes that can be reached from `from` via one directed edge. `None` if the
+
+    /// Return all the nodes that can be reached from `node` via one directed edge. `None` if the
     /// node is not in the graph.
-    /// Note: Depending on the implementation it might not be guaranteed that all returned elements
-    /// are actually nodes.
+    /// Note: Depending on the implementation a node without outgoing edges might also return
+    /// `None`.
     ///
     /// ```
     /// # use graph::{Graph, general_graph::GeneralGraph, Edges};
@@ -101,6 +101,7 @@ where
     /// assert_eq!(our_graph.get_targets(&'B'), Some(&HashSet::from(['A'])));
     /// ```
     fn get_targets(&self, node: &T) -> Option<&E>;
+
     /// Returns all the nodes in this graph
     ///
     /// ```
@@ -178,6 +179,7 @@ where
     /// assert_eq!(iterated, HashSet::from([4]));
     /// ```
     fn add(&mut self, target: &T);
+
     /// Delete an edge, by specifiying its end node.
     ///
     /// ```
@@ -191,6 +193,7 @@ where
     /// assert_eq!(iterated, HashSet::from([1, 3]));
     /// ```
     fn delete(&mut self, target: &T);
+
     /// Iterate over all edges (or more precisely, their target nodes)
     ///
     /// ```
@@ -202,6 +205,7 @@ where
     /// assert_eq!(iterated, HashSet::from([1, 2, 3]));
     /// ```
     fn edge_iter(&self) -> impl Iterator<Item = T>;
+
     /// Find out if an edge with the given target exists in this collection
     ///
     /// ```
