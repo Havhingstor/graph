@@ -105,7 +105,7 @@ impl IndexGraph {
 /// targets.add(&2);
 /// targets.add(&4); // Too high, so won't be added
 /// targets.delete(&2);
-/// assert_eq!(targets.clone_hash_set(), HashSet::from([3]))
+/// assert_eq!(targets.as_ref(), &HashSet::from([3]))
 /// ```
 pub struct LimitedSet {
     /// The internal [`HashSet`] that builds the foundation of the `LimitedSet`.
