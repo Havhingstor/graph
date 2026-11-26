@@ -7,10 +7,11 @@
 #![warn(clippy::pedantic)]
 
 use std::{
-    collections::HashSet,
+    collections::{HashMap, HashSet},
     hash::{BuildHasher, Hash},
 };
 
+mod dijkstra;
 #[cfg(feature = "general_graph")]
 pub mod general_graph;
 #[cfg(feature = "index_graph")]
@@ -141,6 +142,81 @@ where
     /// ```
     fn get_topo_sort(&self) -> Vec<HashSet<T>> {
         topo_order::topo_order(self)
+    }
+
+    /// Calculate the distance and predecessor of the shortest paths of all nodes from the given
+    /// starting node.
+    ///
+    /// The starting node is not inserted in the table, but it is present as the predecessor of its
+    /// neighbours.
+    /// Uses the **Dijkstra** algorithm to find the shortest paths, see also [Wikipedia](https://en.wikipedia.org/wiki/Dijkstra%27s_algorithm).
+    ///
+    /// ```
+    /// # use graph::{Edges, Graph, general_graph::GeneralGraph};
+    /// let mut our_graph = GeneralGraph::<char>::default();
+    ///
+    /// our_graph.add_node(&'A');
+    /// our_graph.add_node(&'B');
+    /// our_graph.add_node(&'C');
+    /// our_graph.add_node(&'D');
+    ///
+    /// our_graph.get_targets_mut(&'A').unwrap().add(&'B');
+    /// our_graph.get_targets_mut(&'A').unwrap().add(&'C');
+    /// our_graph.get_targets_mut(&'B').unwrap().add(&'D');
+    /// our_graph.get_targets_mut(&'D').unwrap().add(&'C');
+    ///
+    /// let dijkstra_table = our_graph.calculate_dijkstra_table(&'A');
+    /// assert_eq!(dijkstra_table.get(&'B').unwrap(), &('A', 1));
+    /// assert_eq!(dijkstra_table.get(&'C').unwrap(), &('A', 1));
+    /// assert_eq!(dijkstra_table.get(&'D').unwrap(), &('B', 2));
+    /// ```
+    fn calculate_dijkstra_table(&self, starting_node: &T) -> HashMap<T, (T, usize)> {
+        dijkstra::calculate_dijkstra(self, starting_node)
+    }
+
+    /// Calculates the shortest path from a starting node to an end node.
+    ///
+    /// If either of the nodes is not part of the graph or the end node cannot be reached from the
+    /// starting node, [`None`] is returned.
+    /// Uses the **Dijkstra** algorithm to find the shortest path, see also [Wikipedia](https://en.wikipedia.org/wiki/Dijkstra%27s_algorithm).
+    ///
+    /// ```
+    /// # use graph::{Edges, Graph, general_graph::GeneralGraph};
+    /// let mut our_graph = GeneralGraph::<char>::default();
+    ///
+    /// our_graph.add_node(&'A');
+    /// our_graph.add_node(&'B');
+    /// our_graph.add_node(&'C');
+    /// our_graph.add_node(&'D');
+    ///
+    /// our_graph.get_targets_mut(&'A').unwrap().add(&'B');
+    /// our_graph.get_targets_mut(&'A').unwrap().add(&'C');
+    /// our_graph.get_targets_mut(&'B').unwrap().add(&'D');
+    /// our_graph.get_targets_mut(&'D').unwrap().add(&'C');
+    ///
+    /// assert_eq!(
+    ///     our_graph.find_shortest_path(&'A', &'C').unwrap().as_ref(),
+    ///     &['A', 'C']
+    /// );
+    /// assert_eq!(
+    ///     our_graph.find_shortest_path(&'A', &'D').unwrap().as_ref(),
+    ///     &['A', 'B', 'D']
+    /// );
+    /// ```
+    fn find_shortest_path(&self, starting_node: &T, end_node: &T) -> Option<Box<[T]>> {
+        let mut result = vec![];
+        let mut current_node = end_node;
+        let dijkstra_table = self.calculate_dijkstra_table(starting_node);
+        while current_node != starting_node {
+            let (predecessor, _) = dijkstra_table.get(current_node)?;
+
+            result.push(*current_node);
+            current_node = predecessor;
+        }
+        result.push(*starting_node);
+        result.reverse();
+
+        Some(result.into_boxed_slice())
     }
 }
 
