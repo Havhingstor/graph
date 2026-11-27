@@ -11,6 +11,7 @@ use std::{
     hash::{BuildHasher, Hash},
 };
 
+mod a_star;
 mod dijkstra;
 #[cfg(feature = "general_graph")]
 pub mod general_graph;
