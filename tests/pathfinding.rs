@@ -1,3 +1,5 @@
+#![cfg(feature = "pathfinding")]
+
 #[test]
 fn test_dijkstra_a_star() {
     use graph::{Edges, Graph, general_graph::GeneralGraph};

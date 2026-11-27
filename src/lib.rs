@@ -11,6 +11,7 @@ use std::{
     hash::{BuildHasher, Hash},
 };
 
+#[cfg(feature = "pathfinding")]
 mod a_star;
 #[cfg(feature = "general_graph")]
 pub mod general_graph;
@@ -144,6 +145,7 @@ where
         topo_order::topo_order(self)
     }
 
+    #[cfg(feature = "pathfinding")]
     /// Calculate the predecessor of all nodes in the shortest path from the starting node.
     ///
     /// The starting node is not inserted in the table, but it is present as the predecessor of its
@@ -174,6 +176,7 @@ where
         a_star::calculate_a_star(self, starting_node, None, |_| 0)
     }
 
+    #[cfg(feature = "pathfinding")]
     /// Calculates the shortest path from a starting node to an end node.
     ///
     /// If either of the nodes is not part of the graph or the end node cannot be reached from the
@@ -226,6 +229,7 @@ where
         Some(result.into_boxed_slice())
     }
 
+    #[cfg(feature = "pathfinding")]
     /// Calculates the shortest path from a starting node to an end node.
     ///
     /// If either of the nodes is not part of the graph or the end node cannot be reached from the
