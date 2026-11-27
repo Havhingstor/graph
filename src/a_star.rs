@@ -5,10 +5,25 @@ use priority_queue::PriorityQueue;
 
 use crate::{Edges, Graph};
 
+/// Calculate the predecessor table for a given graph and starting node.
+///
+/// If `end_node` isn't [`None`], the algorithm terminates once it is found, meaning only the path
+/// from the `starting_node` to it is guaranteed to be optimal.
+///
+/// The `heuristic_function` can be used to guide and speed up the search process. For each given
+/// node, it should return an estimate of the remaining number of hops from this node to the end
+/// node in the shortest path.
+///
+/// **It is important that this value is always at most the actual number,
+/// otherwise the calculated path might not be optimal!**
+/// Returning a high value (like [`usize::MAX`]) in this case improves performance.
+///
+/// The starting node is not inserted in the table, but it is present as the predecessor of its
+/// neighbours.
 pub(super) fn calculate_a_star<G, T, E>(
     graph: &G,
     starting_node: &T,
-    end_node: &T,
+    end_node: Option<&T>,
     mut heuristic_function: impl FnMut(&T) -> usize,
 ) -> HashMap<T, T>
 where
@@ -26,7 +41,7 @@ where
     while let Some(currently_visiting) = next_node_opt {
         let (_, current_g) = g_values.get(&currently_visiting).unwrap();
 
-        if &currently_visiting == end_node {
+        if Some(&currently_visiting) == end_node {
             break;
         }
         let new_g = current_g + 1;
@@ -36,15 +51,17 @@ where
             .into_iter()
             .flat_map(E::edge_iter)
             .for_each(|neighbour| {
-                if g_values
-                    .get(&neighbour)
-                    .is_none_or(|(_, old_g)| old_g > &new_g)
-                {
-                    g_values.insert(neighbour, (currently_visiting, new_g));
-                    let current_estimate = *h_values
+                let (predecessor, old_g) = g_values
+                    .entry(neighbour)
+                    .or_insert((currently_visiting, usize::MAX));
+                if *old_g > new_g {
+                    *predecessor = currently_visiting;
+                    *old_g = new_g;
+                    let current_estimate = h_values
                         .entry(neighbour)
                         .or_insert_with(|| heuristic_function(&neighbour))
-                        + new_g;
+                        // Needed here because the heuristic might be `usize::MAX`
+                        .saturating_add(new_g);
                     f_values.push(neighbour, Reverse(current_estimate));
                 }
             });
@@ -60,33 +77,4 @@ where
         }
     });
     HashMap::from_iter(result_iter)
-}
-
-#[cfg(test)]
-mod test {
-    use crate::{Graph, a_star::calculate_a_star, general_graph::GeneralGraph};
-
-    #[test]
-    fn test_a_star() {
-        let mut graph = GeneralGraph::default();
-        for node in "ABCDEFGHI".chars() {
-            graph.add_node(&node);
-        }
-
-        graph.get_targets_mut(&'A').unwrap().extend("BD".chars());
-        graph.get_targets_mut(&'B').unwrap().insert('C');
-        graph.get_targets_mut(&'D').unwrap().insert('E');
-        graph.get_targets_mut(&'E').unwrap().insert('C');
-        graph.get_targets_mut(&'C').unwrap().insert('F');
-        graph.get_targets_mut(&'C').unwrap().insert('G');
-        graph.get_targets_mut(&'G').unwrap().insert('H');
-        graph.get_targets_mut(&'H').unwrap().insert('I');
-
-        let heuristic = |node: &char| {
-            if node == &'B' { 5 } else { 0 }
-        };
-
-        let table = calculate_a_star(&graph, &'A', &'I', heuristic);
-        assert_eq!(table[&'C'], 'B');
-    }
 }

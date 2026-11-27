@@ -12,7 +12,6 @@ use std::{
 };
 
 mod a_star;
-mod dijkstra;
 #[cfg(feature = "general_graph")]
 pub mod general_graph;
 #[cfg(feature = "index_graph")]
@@ -145,8 +144,7 @@ where
         topo_order::topo_order(self)
     }
 
-    /// Calculate the distance and predecessor of the shortest paths of all nodes from the given
-    /// starting node.
+    /// Calculate the predecessor of all nodes in the shortest path from the starting node.
     ///
     /// The starting node is not inserted in the table, but it is present as the predecessor of its
     /// neighbours.
@@ -167,12 +165,13 @@ where
     /// our_graph.get_targets_mut(&'D').unwrap().add(&'C');
     ///
     /// let dijkstra_table = our_graph.calculate_dijkstra_table(&'A');
-    /// assert_eq!(dijkstra_table.get(&'B').unwrap(), &('A', 1));
-    /// assert_eq!(dijkstra_table.get(&'C').unwrap(), &('A', 1));
-    /// assert_eq!(dijkstra_table.get(&'D').unwrap(), &('B', 2));
+    /// assert_eq!(dijkstra_table.get(&'B').unwrap(), &'A');
+    /// assert_eq!(dijkstra_table.get(&'C').unwrap(), &'A');
+    /// assert_eq!(dijkstra_table.get(&'D').unwrap(), &'B');
     /// ```
-    fn calculate_dijkstra_table(&self, starting_node: &T) -> HashMap<T, (T, usize)> {
-        dijkstra::calculate_dijkstra(self, starting_node)
+    fn calculate_dijkstra_table(&self, starting_node: &T) -> HashMap<T, T> {
+        // Internally we use A*: If the heuristic always returns 0, it is the Dijkstra algorithm.
+        a_star::calculate_a_star(self, starting_node, None, |_| 0)
     }
 
     /// Calculates the shortest path from a starting node to an end node.
@@ -203,13 +202,86 @@ where
     ///     our_graph.find_shortest_path(&'A', &'D').unwrap().as_ref(),
     ///     &['A', 'B', 'D']
     /// );
+    /// assert_eq!(
+    ///     our_graph.find_shortest_path(&'A', &'A').unwrap().as_ref(),
+    ///     &['A']
+    /// );
     /// ```
     fn find_shortest_path(&self, starting_node: &T, end_node: &T) -> Option<Box<[T]>> {
         let mut result = vec![];
         let mut current_node = end_node;
-        let dijkstra_table = self.calculate_dijkstra_table(starting_node);
+        // Internally we use A*: If the heuristic always returns 0, it is the Dijkstra algorithm.
+        // With the given end node it terminates once the end node has been found. This is valid
+        // behaviour for the Dijkstra algorithm, too.
+        let dijkstra_table = a_star::calculate_a_star(self, starting_node, Some(end_node), |_| 0);
         while current_node != starting_node {
-            let (predecessor, _) = dijkstra_table.get(current_node)?;
+            let predecessor = dijkstra_table.get(current_node)?;
+
+            result.push(*current_node);
+            current_node = predecessor;
+        }
+        result.push(*starting_node);
+        result.reverse();
+
+        Some(result.into_boxed_slice())
+    }
+
+    /// Calculates the shortest path from a starting node to an end node.
+    ///
+    /// If either of the nodes is not part of the graph or the end node cannot be reached from the
+    /// starting node, [`None`] is returned.
+    /// Uses the **A\*** algorithm to find the shortest path, see also [Wikipedia](https://en.wikipedia.org/wiki/A*_search_algorithm).
+    ///
+    /// The `heuristic_function` can be used to guide and speed up the search process. For each
+    /// given node, it should return an estimate of the remaining number of hops from this node to
+    /// the end node in the shortest path.
+    ///
+    /// **It is important that this value is always at most the
+    /// actual number, otherwise the calculated path might not be optimal!**
+    /// If the end node can't be reached from a particular node, any value can be returned.
+    /// Returning a high value (like [`usize::MAX`]) in this case improves performance.
+    ///
+    /// ```
+    /// # use graph::{Edges, Graph, general_graph::GeneralGraph};
+    /// let mut our_graph = GeneralGraph::<char>::default();
+    ///
+    /// our_graph.add_node(&'A');
+    /// our_graph.add_node(&'B');
+    /// our_graph.add_node(&'C');
+    /// our_graph.add_node(&'D');
+    ///
+    /// our_graph.get_targets_mut(&'A').unwrap().add(&'B');
+    /// our_graph.get_targets_mut(&'A').unwrap().add(&'C');
+    /// our_graph.get_targets_mut(&'B').unwrap().add(&'D');
+    /// our_graph.get_targets_mut(&'D').unwrap().add(&'C');
+    ///
+    /// let heuristic = |node: &char| match node {
+    ///     'D' => 0,
+    ///     'B' => 1,
+    ///     'A' => 2,
+    ///     _ => usize::MAX,
+    /// };
+    ///
+    /// assert_eq!(
+    ///     our_graph
+    ///         .find_shortest_path_a_star(&'A', &'D', heuristic)
+    ///         .unwrap()
+    ///         .as_ref(),
+    ///     &['A', 'B', 'D']
+    /// );
+    /// ```
+    fn find_shortest_path_a_star(
+        &self,
+        starting_node: &T,
+        end_node: &T,
+        heuristic: impl FnMut(&T) -> usize,
+    ) -> Option<Box<[T]>> {
+        let mut result = vec![];
+        let mut current_node = end_node;
+        let dijkstra_table =
+            a_star::calculate_a_star(self, starting_node, Some(end_node), heuristic);
+        while current_node != starting_node {
+            let predecessor = dijkstra_table.get(current_node)?;
 
             result.push(*current_node);
             current_node = predecessor;
@@ -242,8 +314,8 @@ where
 {
     /// Add a new edge, by specifiying its end node.
     /// Note: Depending on implementation the node might have to be created first by calling
-    /// [`Graph::get_insert_targets_mut`] or an equivalent function (like
-    /// [`general_graph::GeneralGraph::add_node`]), otherwise it might not be added as a target.
+    /// [`Graph::get_insert_targets_mut`] or an equivalent function, otherwise it might not be added
+    /// as a target.
     ///
     /// ```
     /// # use graph::Edges;
@@ -256,6 +328,25 @@ where
     /// assert_eq!(iterated, HashSet::from([4]));
     /// ```
     fn add(&mut self, target: &T);
+
+    /// Add new edges, by specifiying their end nodes.
+    /// Note: Depending on implementation the node might have to be created first by calling
+    /// [`Graph::get_insert_targets_mut`] or an equivalent function , otherwise it might not be
+    /// added as a target.
+    ///
+    /// ```
+    /// # use graph::Edges;
+    /// # use std::collections::HashSet;
+    /// let mut edges: HashSet<_> = Default::default();
+    ///
+    /// edges.add(&4);
+    ///
+    /// let iterated: HashSet<_> = edges.edge_iter().collect();
+    /// assert_eq!(iterated, HashSet::from([4]));
+    /// ```
+    fn add_all<'a>(&mut self, targets: impl IntoIterator<Item = &'a T>)
+    where
+        T: 'a;
 
     /// Delete an edge, by specifiying its end node.
     ///
@@ -301,8 +392,21 @@ where
     T: Copy + Eq + Hash,
     S: BuildHasher,
 {
+    /// Add a new edge, by specifiying its end node.
+    ///
+    /// Note: Adding an edge here adds it to the nodes of the graph, even if it wasn't one before.
     fn add(&mut self, target: &T) {
         self.insert(*target);
+    }
+
+    /// Add new edges, by specifiying their end nodes.
+    ///
+    /// Note: Adding an edge here adds it to the nodes of the graph, even if it wasn't one before.
+    fn add_all<'a>(&mut self, targets: impl IntoIterator<Item = &'a T>)
+    where
+        T: 'a,
+    {
+        self.extend(targets);
     }
 
     fn delete(&mut self, target: &T) {

@@ -163,6 +163,16 @@ impl Edges<usize> for LimitedSet {
         }
     }
 
+    fn add_all<'a>(&mut self, targets: impl IntoIterator<Item = &'a usize>)
+    where
+        usize: 'a,
+    {
+        let filtered_iter = targets
+            .into_iter()
+            .filter(|target| target < &&self.upper_bound);
+        self.internal.extend(filtered_iter);
+    }
+
     fn delete(&mut self, target: &usize) {
         self.internal.delete(target);
     }

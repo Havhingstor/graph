@@ -104,6 +104,13 @@ impl Edges<usize> for Vec<bool> {
         }
     }
 
+    fn add_all<'a>(&mut self, targets: impl IntoIterator<Item = &'a usize>)
+    where
+        usize: 'a,
+    {
+        targets.into_iter().for_each(|target| self.add(target));
+    }
+
     fn delete(&mut self, target: &usize) {
         if &self.len() > target {
             self[*target] = false;
